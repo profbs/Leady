@@ -130,3 +130,122 @@ async function fetchHtml(url: string): Promise<string> {
   const html = await response.text();
   return truncate(html, 120000);
 }
+
+
+export async function crawlSitePages(
+  website: string,
+  seedPages: PageDocument[],
+  maxPages: number
+): Promise<PageDocument[]> {
+  const baseUrl = normalizeWebsite(website);
+  if (!baseUrl) {
+    return [];
+  }
+
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return [];
+  }
+
+  const visited = new Set<string>();
+  for (const page of seedPages) {
+    const normalized = normalizeCrawlUrl(page.url);
+    if (normalized) {
+      visited.add(normalized);
+    }
+  }
+
+  const queue: string[] = [];
+  for (const page of seedPages) {
+    for (const link of extractInternalLinks(page.html, page.url, base)) {
+      if (!visited.has(link)) {
+        queue.push(link);
+      }
+    }
+  }
+
+  const pages: PageDocument[] = [];
+  while (queue.length > 0 && pages.length < maxPages) {
+    const url = queue.shift();
+    if (!url || visited.has(url)) {
+      continue;
+    }
+
+    visited.add(url);
+
+    try {
+      const html = await fetchHtml(url);
+      pages.push({
+        url,
+        html,
+        source: "site crawl"
+      });
+
+      for (const link of extractInternalLinks(html, url, base)) {
+        if (!visited.has(link)) {
+          queue.push(link);
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return pages;
+}
+
+function extractInternalLinks(html: string, baseUrl: string, base: URL): string[] {
+  const $ = cheerio.load(html);
+  const links = new Set<string>();
+
+  $("a[href]").each((_, element) => {
+    const href = $(element).attr("href");
+    if (!href) {
+      return;
+    }
+
+    const lower = href.toLowerCase();
+    if (
+      lower.startsWith("#") ||
+      lower.startsWith("mailto:") ||
+      lower.startsWith("tel:") ||
+      lower.startsWith("javascript:")
+    ) {
+      return;
+    }
+
+    let target: URL;
+    try {
+      target = new URL(href, baseUrl);
+    } catch {
+      return;
+    }
+
+    if (target.origin !== base.origin) {
+      return;
+    }
+
+    target.hash = "";
+    const normalized = normalizeCrawlUrl(target.toString());
+    if (normalized) {
+      links.add(normalized);
+    }
+  });
+
+  return [...links];
+}
+
+function normalizeCrawlUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = "";
+    if (parsed.pathname.length > 1 && parsed.pathname.endsWith("/")) {
+      parsed.pathname = parsed.pathname.slice(0, -1);
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}

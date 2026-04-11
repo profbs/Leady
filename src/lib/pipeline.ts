@@ -4,12 +4,13 @@ import { getCacheStore, getCacheStoreKind } from "./cache.js";
 import { extractContactEmail } from "./extract.js";
 import { searchBusinesses } from "./places.js";
 import { parseProspectingQuery } from "./query.js";
-import { fetchRelevantPages } from "./scrape.js";
+import { fetchRelevantPages, crawlSitePages } from "./scrape.js";
 import { exportLeadsToSheet } from "./sheets.js";
 import { clamp, normalizeWebsite, sha1 } from "./utils.js";
 
 const PLACE_CACHE_TTL_SECONDS = 60 * 30;
 const PAGE_CACHE_TTL_SECONDS = 60 * 60 * 6;
+const CRAWL_PAGE_LIMIT = 8;
 const CONCURRENCY_LIMIT = 4;
 
 export async function runProspectingPipeline(
@@ -89,33 +90,22 @@ async function processBusiness(
       log(`Cached ${pages.length} pages for ${business.name}.`);
     }
 
-    let bestMatch: {
-      email: string;
-      source: "homepage" | "contact page";
-      confidence: number;
-    } | null = null;
+    let bestMatch = await findBestMatchFromPages(pages, business.name, log);
 
-    for (const page of pages) {
-      log(`Extracting email from ${page.source} for ${business.name}...`);
-      const extracted = await extractContactEmail(page);
+    if (!bestMatch) {
+      const hasCrawlPages = pages.some((page) => page.source === "site crawl");
+      if (!hasCrawlPages) {
+        log("No email found in priority pages for " + business.name + ". Crawling additional pages...");
+        const crawledPages = await crawlSitePages(normalizedWebsite, pages, CRAWL_PAGE_LIMIT);
 
-      if (!extracted.email) {
-        continue;
-      }
-
-      const pageBoost = page.source === "contact page" ? 0.08 : 0.03;
-      const confidence = clamp(extracted.confidence + pageBoost, 0, 0.99);
-
-      if (!bestMatch || confidence > bestMatch.confidence) {
-        bestMatch = {
-          email: extracted.email,
-          source: page.source,
-          confidence
-        };
-      }
-
-      if (page.source === "contact page" && confidence >= 0.82) {
-        break;
+        if (crawledPages.length > 0) {
+          log("Crawled " + crawledPages.length + " additional pages for " + business.name + ".");
+          pages = [...pages, ...crawledPages];
+          await cache.set(pageCacheKey, pages, PAGE_CACHE_TTL_SECONDS);
+          bestMatch = await findBestMatchFromPages(crawledPages, business.name, log);
+        } else {
+          log("No additional pages found for " + business.name + ".");
+        }
       }
     }
 
@@ -136,6 +126,40 @@ async function processBusiness(
     log(`Falling back to not found for ${business.name}: ${error instanceof Error ? error.message : "Unknown error"}`);
     return buildNotFoundLead(business);
   }
+}
+
+async function findBestMatchFromPages(
+  pages: PageDocument[],
+  businessName: string,
+  log: (message: string) => void
+): Promise<{ email: string; source: PageDocument["source"]; confidence: number } | null> {
+  let bestMatch: { email: string; source: PageDocument["source"]; confidence: number } | null = null;
+
+  for (const page of pages) {
+    log("Extracting email from " + page.source + " for " + businessName + "...");
+    const extracted = await extractContactEmail(page);
+
+    if (!extracted.email) {
+      continue;
+    }
+
+    const pageBoost = page.source === "contact page" ? 0.08 : 0.03;
+    const confidence = clamp(extracted.confidence + pageBoost, 0, 0.99);
+
+    if (!bestMatch || confidence > bestMatch.confidence) {
+      bestMatch = {
+        email: extracted.email,
+        source: page.source,
+        confidence
+      };
+    }
+
+    if (page.source === "contact page" && confidence >= 0.82) {
+      break;
+    }
+  }
+
+  return bestMatch;
 }
 
 function buildNotFoundLead(business: BusinessCandidate): LeadRow {

@@ -409,6 +409,7 @@
       const historyListEl = document.getElementById("history-list");
       let pollTimer = null;
       const history = [];
+      const apiBaseUrl = new URL("./api/", window.location.href);
 
       const steps = [
         { key: "parse", label: "Parse the request" },
@@ -417,6 +418,10 @@
         { key: "extract", label: "Extract email candidates" },
         { key: "export", label: "Export to Google Sheets" }
       ];
+
+      function apiUrl(path) {
+        return new URL(path, apiBaseUrl);
+      }
 
       function updateStatus(state, message) {
         statusPill.dataset.state = state;
@@ -534,31 +539,45 @@
       }
 
       async function pollJob(jobId) {
-        const response = await fetch(`/api/jobs/${jobId}`);
-        const job = await response.json();
-        updateStatus(job.status, `Status: ${job.status}`);
-        renderLogs(job.logs || []);
-        renderProgress(job.logs || [], job.status);
-        renderResult(job);
+        try {
+          const response = await fetch(apiUrl("jobs/" + jobId));
+          if (!response.ok) {
+            throw new Error("Polling failed (" + response.status + ")");
+          }
 
-        if (job.status === "completed" || job.status === "failed") {
+          const job = await response.json();
+          updateStatus(job.status, "Status: " + job.status);
+          renderLogs(job.logs || []);
+          renderProgress(job.logs || [], job.status);
+          renderResult(job);
+
+          if (job.status === "completed" || job.status === "failed") {
+            submitButton.disabled = false;
+            if (job.status === "failed") {
+              resultEl.hidden = false;
+              resultEl.innerHTML = "<strong>Run failed.</strong><div>" + (job.error || "Unknown error") + "</div>";
+            }
+
+            if (job.status === "completed") {
+              addToHistory(job);
+            }
+
+            if (pollTimer) {
+              clearTimeout(pollTimer);
+            }
+            return;
+          }
+        } catch (error) {
           submitButton.disabled = false;
-          if (job.status === "failed") {
-            resultEl.hidden = false;
-            resultEl.innerHTML = `<strong>Run failed.</strong><div>${job.error || "Unknown error"}</div>`;
-          }
-
-          if (job.status === "completed") {
-            addToHistory(job);
-          }
-
-          if (pollTimer) {
-            clearTimeout(pollTimer);
-          }
+          updateStatus("failed", "Status: failed");
+          resultEl.hidden = false;
+          resultEl.innerHTML = "<strong>Live update failed.</strong><div>" + ((error && error.message) ? error.message : "Unknown polling error") + "</div>";
           return;
         }
 
-        pollTimer = setTimeout(() => pollJob(jobId), 1000);
+        pollTimer = setTimeout(function () {
+          pollJob(jobId);
+        }, 1000);
       }
 
       form.addEventListener("submit", async (event) => {
@@ -570,26 +589,40 @@
         resultEl.innerHTML = "";
         renderProgress([], "queued");
 
-        const response = await fetch("/api/jobs", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            query: queryInput.value
-          })
-        });
+        try {
+          const response = await fetch(apiUrl("jobs"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              query: queryInput.value
+            })
+          });
 
-        const payload = await response.json();
-        if (!response.ok) {
+          const payload = await response.json().catch(function () {
+            return { error: "Invalid server response" };
+          });
+
+          if (!response.ok) {
+            submitButton.disabled = false;
+            updateStatus("failed", "Status: failed");
+            resultEl.hidden = false;
+            resultEl.innerHTML = "<strong>Could not start job.</strong><div>" + (payload.error || "Unknown error") + "</div>";
+            return;
+          }
+
+          if (!payload.id) {
+            throw new Error("Job ID missing from server response");
+          }
+
+          pollJob(payload.id);
+        } catch (error) {
           submitButton.disabled = false;
           updateStatus("failed", "Status: failed");
           resultEl.hidden = false;
-          resultEl.innerHTML = `<strong>Could not start job.</strong><div>${payload.error || "Unknown error"}</div>`;
-          return;
+          resultEl.innerHTML = "<strong>Could not start job.</strong><div>" + ((error && error.message) ? error.message : "Unknown network error") + "</div>";
         }
-
-        pollJob(payload.id);
       });
 
       examplesEl.addEventListener("click", (event) => {

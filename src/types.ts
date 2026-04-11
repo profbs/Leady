@@ -1,4 +1,4 @@
-export type EmailSource = "homepage" | "contact page" | "not found";
+export type EmailSource = "homepage" | "contact page" | "site crawl" | "not found";
 
 export interface ParsedQuery {
   rawQuery: string;
@@ -49,6 +49,43 @@ export interface PipelineStats {
 export interface PipelineResult {
   rows: LeadRow[];
   stats: PipelineStats;
+}
+
+export type SpecialistAgentName = "extraction" | "planning" | "filtering" | "trip_planner";
+
+export interface AgentDecision {
+  agent: SpecialistAgentName;
+  reason: string;
+}
+
+export interface AgentMemoryEntry {
+  role: "user" | "assistant";
+  agent: "master" | SpecialistAgentName;
+  content: string;
+  timestamp: string;
+}
+
+export interface AgentMemorySnapshot {
+  store: "redis" | "memory";
+  entries: AgentMemoryEntry[];
+}
+
+export interface AgentRunRequest {
+  sessionId: string;
+  input: string;
+  task?: "auto" | SpecialistAgentName;
+  items?: string[];
+  preferences?: string[];
+}
+
+export interface AgentRunResponse {
+  sessionId: string;
+  decision: AgentDecision;
+  result: {
+    summary: string;
+    [key: string]: unknown;
+  };
+  memory: AgentMemorySnapshot;
 }
 
 export interface JobLogEntry {

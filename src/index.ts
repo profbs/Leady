@@ -1,11 +1,21 @@
 import express from "express";
+import { z } from "zod";
 import { config } from "./config.js";
+import { getAgentMemorySnapshot, runAgentWorkflow } from "./lib/agents.js";
 import { createJob, getJob } from "./lib/jobs.js";
 
 const app = express();
 
 app.use(express.json());
 app.use(express.static("public"));
+
+const agentRunSchema = z.object({
+  sessionId: z.string().trim().min(1),
+  input: z.string().trim().min(1),
+  task: z.enum(["auto", "extraction", "planning", "filtering", "trip_planner"]).optional(),
+  items: z.array(z.string().trim().min(1)).max(200).optional(),
+  preferences: z.array(z.string().trim().min(1)).max(50).optional()
+});
 
 app.get("/health", (_req, res) => {
   res.json({
@@ -40,6 +50,48 @@ app.get("/api/jobs/:id", (req, res) => {
   }
 
   res.json(job);
+});
+
+app.post("/api/agents/run", async (req, res) => {
+  const parsed = agentRunSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid request payload.",
+      details: parsed.error.flatten()
+    });
+    return;
+  }
+
+  try {
+    const response = await runAgentWorkflow(parsed.data);
+    res.status(200).json(response);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Unknown error while running agent workflow."
+    });
+  }
+});
+
+app.get("/api/agents/memory/:sessionId", async (req, res) => {
+  const sessionId = req.params.sessionId?.trim() ?? "";
+  if (!sessionId) {
+    res.status(400).json({
+      error: "A sessionId path param is required."
+    });
+    return;
+  }
+
+  try {
+    const memory = await getAgentMemorySnapshot(sessionId);
+    res.status(200).json({
+      sessionId,
+      ...memory
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Unknown error while reading memory."
+    });
+  }
 });
 
 app.listen(config.port, () => {
