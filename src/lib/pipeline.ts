@@ -1,6 +1,6 @@
 import { assertPipelineConfig } from "../config.js";
 import type { BusinessCandidate, LeadRow, PageDocument, PipelineResult } from "../types.js";
-import { getCacheStore } from "./cache.js";
+import { getCacheStore, getCacheStoreKind } from "./cache.js";
 import { extractContactEmail } from "./extract.js";
 import { searchBusinesses } from "./places.js";
 import { parseProspectingQuery } from "./query.js";
@@ -23,6 +23,12 @@ export async function runProspectingPipeline(
   log(`Parsed query: ${parsedQuery.category} in ${parsedQuery.location}`);
 
   const cache = await getCacheStore();
+  const cacheKind = getCacheStoreKind();
+  if (cacheKind) {
+    const label = cacheKind === "redis" ? "Redis" : "in-memory";
+    const detail = cacheKind === "redis" ? "(REDIS_URL set)" : "(no REDIS_URL)";
+    log(`Cache store: ${label} ${detail}.`);
+  }
   const placeCacheKey = `places:${parsedQuery.category}:${parsedQuery.location}`;
   let businesses = await cache.get<BusinessCandidate[]>(placeCacheKey);
 
@@ -32,6 +38,7 @@ export async function runProspectingPipeline(
     log("Fetching businesses from Google Places...");
     businesses = await searchBusinesses(parsedQuery);
     await cache.set(placeCacheKey, businesses, PLACE_CACHE_TTL_SECONDS);
+    log(`Cached Places results for reuse.`);
     log(`Google Places returned ${businesses.length} businesses.`);
   }
 
@@ -73,9 +80,13 @@ async function processBusiness(
     const pageCacheKey = `pages:${sha1(normalizedWebsite)}`;
     let pages = await cache.get<PageDocument[]>(pageCacheKey);
 
-    if (!pages) {
+    if (pages) {
+      log(`Cache hit for pages for ${business.name}.`);
+    } else {
+      log(`Fetching pages for ${business.name}...`);
       pages = await fetchRelevantPages(normalizedWebsite);
       await cache.set(pageCacheKey, pages, PAGE_CACHE_TTL_SECONDS);
+      log(`Cached ${pages.length} pages for ${business.name}.`);
     }
 
     let bestMatch: {

@@ -12,6 +12,9 @@
         --muted: #6d6558;
         --accent: #0d6b50;
         --accent-soft: #d4efe5;
+        --accent-strong: #0a4d3a;
+        --warn: #b96900;
+        --danger: #b9483d;
         --line: rgba(29, 26, 20, 0.12);
         --shadow: 0 24px 80px rgba(63, 45, 23, 0.12);
       }
@@ -88,6 +91,19 @@
         padding: 24px;
       }
 
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 1.05rem;
+        letter-spacing: -0.01em;
+      }
+
       label {
         display: block;
         margin-bottom: 10px;
@@ -140,8 +156,100 @@
       }
 
       .status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         margin-bottom: 12px;
         font-weight: 700;
+      }
+
+      .status-pill {
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        background: rgba(29, 26, 20, 0.08);
+        color: var(--ink);
+      }
+
+      .status-pill[data-state="queued"] {
+        background: rgba(13, 107, 80, 0.08);
+        color: var(--accent-strong);
+      }
+
+      .status-pill[data-state="running"] {
+        background: rgba(13, 107, 80, 0.18);
+        color: var(--accent-strong);
+      }
+
+      .status-pill[data-state="completed"] {
+        background: rgba(13, 107, 80, 0.24);
+        color: var(--accent-strong);
+      }
+
+      .status-pill[data-state="failed"] {
+        background: rgba(185, 72, 61, 0.18);
+        color: var(--danger);
+      }
+
+      .status-pill[data-state="idle"] {
+        background: rgba(29, 26, 20, 0.08);
+        color: var(--muted);
+      }
+
+      .progress {
+        display: grid;
+        gap: 10px;
+        margin: 12px 0 18px;
+      }
+
+      .progress-step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(29, 26, 20, 0.04);
+        border: 1px solid transparent;
+        color: var(--muted);
+      }
+
+      .progress-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(29, 26, 20, 0.24);
+      }
+
+      .progress-step[data-state="active"] {
+        border-color: rgba(13, 107, 80, 0.24);
+        color: var(--ink);
+      }
+
+      .progress-step[data-state="active"] .progress-dot {
+        background: var(--accent);
+        box-shadow: 0 0 0 4px rgba(13, 107, 80, 0.15);
+      }
+
+      .progress-step[data-state="done"] {
+        border-color: rgba(13, 107, 80, 0.2);
+        color: var(--accent-strong);
+        background: rgba(13, 107, 80, 0.08);
+      }
+
+      .progress-step[data-state="done"] .progress-dot {
+        background: var(--accent-strong);
+      }
+
+      .progress-step[data-state="failed"] {
+        border-color: rgba(185, 72, 61, 0.3);
+        color: var(--danger);
+        background: rgba(185, 72, 61, 0.08);
+      }
+
+      .progress-step[data-state="failed"] .progress-dot {
+        background: var(--danger);
       }
 
       .logs {
@@ -165,8 +273,48 @@
         background: rgba(13, 107, 80, 0.08);
       }
 
+      .result-grid {
+        display: grid;
+        gap: 6px;
+      }
+
       .result a {
         color: var(--accent);
+        font-weight: 700;
+      }
+
+      .history {
+        margin-top: 18px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+      }
+
+      .history h3 {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
+      }
+
+      .history-list {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .history-item {
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(29, 26, 20, 0.04);
+        border: 1px solid rgba(29, 26, 20, 0.08);
+        color: var(--muted);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .history-item a {
+        color: var(--accent-strong);
         font-weight: 700;
       }
 
@@ -202,6 +350,9 @@
 
       <section class="grid">
         <div class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Start a run</h2>
+          </div>
           <form id="query-form">
             <label for="query">Prospecting query</label>
             <input
@@ -212,6 +363,12 @@
             <button id="submit-button" type="submit">Run Leady</button>
           </form>
 
+          <div class="meta" id="examples">
+            <span class="chip" data-example="Find cafes in Zurich">Cafes in Zurich</span>
+            <span class="chip" data-example="Show me hotels in Berlin">Hotels in Berlin</span>
+            <span class="chip" data-example="Give me a list of bakeries in Paris with emails">Bakeries in Paris</span>
+          </div>
+
           <div class="meta">
             <span class="chip">One location per run</span>
             <span class="chip">Google Places source</span>
@@ -220,9 +377,20 @@
         </div>
 
         <div class="panel">
-          <div class="status" id="status">Idle</div>
+          <div class="panel-header">
+            <h2 class="panel-title">Run status</h2>
+          </div>
+          <div class="status">
+            <span class="status-pill" id="status-pill" data-state="idle">Idle</span>
+            <span id="status">Waiting for a query.</span>
+          </div>
+          <div class="progress" id="progress"></div>
           <ul class="logs" id="logs"></ul>
           <div class="result" id="result" hidden></div>
+          <div class="history" id="history" hidden>
+            <h3>Recent runs</h3>
+            <ul class="history-list" id="history-list"></ul>
+          </div>
         </div>
       </section>
     </main>
@@ -232,9 +400,80 @@
       const queryInput = document.getElementById("query");
       const submitButton = document.getElementById("submit-button");
       const statusEl = document.getElementById("status");
+      const statusPill = document.getElementById("status-pill");
       const logsEl = document.getElementById("logs");
       const resultEl = document.getElementById("result");
+      const progressEl = document.getElementById("progress");
+      const examplesEl = document.getElementById("examples");
+      const historyEl = document.getElementById("history");
+      const historyListEl = document.getElementById("history-list");
       let pollTimer = null;
+      const history = [];
+
+      const steps = [
+        { key: "parse", label: "Parse the request" },
+        { key: "places", label: "Pull businesses from Places" },
+        { key: "crawl", label: "Crawl sites & contact pages" },
+        { key: "extract", label: "Extract email candidates" },
+        { key: "export", label: "Export to Google Sheets" }
+      ];
+
+      function updateStatus(state, message) {
+        statusPill.dataset.state = state;
+        statusPill.textContent = state;
+        statusEl.textContent = message;
+      }
+
+      function computeStage(logs, jobStatus) {
+        if (jobStatus === "completed") {
+          return steps.length;
+        }
+
+        let stage = -1;
+        for (const entry of logs) {
+          const msg = entry.message || "";
+          if (msg.startsWith("Parsed query:")) {
+            stage = Math.max(stage, 0);
+          }
+          if (msg.startsWith("Fetching businesses") || msg.startsWith("Google Places returned")) {
+            stage = Math.max(stage, 1);
+          }
+          if (msg.startsWith("Processing ") || msg.startsWith("Extracting email")) {
+            stage = Math.max(stage, 2);
+          }
+          if (msg.startsWith("Extracting email")) {
+            stage = Math.max(stage, 3);
+          }
+          if (msg.startsWith("Exporting ") || msg.startsWith("Google Sheet updated")) {
+            stage = Math.max(stage, 4);
+          }
+        }
+
+        return stage;
+      }
+
+      function renderProgress(logs, jobStatus) {
+        const stage = computeStage(logs, jobStatus);
+        progressEl.innerHTML = steps
+          .map((step, index) => {
+            let state = "pending";
+            if (jobStatus === "failed" && index === Math.min(stage + 1, steps.length - 1)) {
+              state = "failed";
+            } else if (index < stage) {
+              state = "done";
+            } else if (index === stage) {
+              state = jobStatus === "completed" ? "done" : "active";
+            }
+
+            return `
+              <div class="progress-step" data-state="${state}">
+                <span class="progress-dot"></span>
+                <span>${step.label}</span>
+              </div>
+            `;
+          })
+          .join("");
+      }
 
       function renderLogs(logs) {
         logsEl.innerHTML = logs
@@ -257,18 +496,49 @@
 
         resultEl.hidden = false;
         resultEl.innerHTML = `
-          <div><strong>${stats.totalBusinesses}</strong> businesses exported</div>
-          <div><strong>${stats.emailsFound}</strong> emails found (${coverage}% coverage)</div>
-          <div><strong>${Math.round(stats.runtimeMs / 1000)}s</strong> runtime</div>
-          <div><a href="${stats.sheetUrl}" target="_blank" rel="noreferrer">Open ${stats.sheetName}</a></div>
+          <div class="result-grid">
+            <div><strong>${stats.totalBusinesses}</strong> businesses exported</div>
+            <div><strong>${stats.emailsFound}</strong> emails found (${coverage}% coverage)</div>
+            <div><strong>${Math.round(stats.runtimeMs / 1000)}s</strong> runtime</div>
+            <div><a href="${stats.sheetUrl}" target="_blank" rel="noreferrer">Open ${stats.sheetName}</a></div>
+          </div>
         `;
+      }
+
+      function addToHistory(job) {
+        if (!job.result) {
+          return;
+        }
+
+        history.unshift({
+          id: job.id,
+          sheetUrl: job.result.stats.sheetUrl,
+          sheetName: job.result.stats.sheetName,
+          summary: `${job.result.stats.emailsFound}/${job.result.stats.totalBusinesses} emails`,
+          finishedAt: new Date().toLocaleTimeString()
+        });
+
+        if (history.length > 5) {
+          history.pop();
+        }
+
+        historyEl.hidden = history.length === 0;
+        historyListEl.innerHTML = history
+          .map((item) => `
+            <li class="history-item">
+              <span>${item.summary} • ${item.finishedAt}</span>
+              <a href="${item.sheetUrl}" target="_blank" rel="noreferrer">Open ${item.sheetName}</a>
+            </li>
+          `)
+          .join("");
       }
 
       async function pollJob(jobId) {
         const response = await fetch(`/api/jobs/${jobId}`);
         const job = await response.json();
-        statusEl.textContent = `Status: ${job.status}`;
+        updateStatus(job.status, `Status: ${job.status}`);
         renderLogs(job.logs || []);
+        renderProgress(job.logs || [], job.status);
         renderResult(job);
 
         if (job.status === "completed" || job.status === "failed") {
@@ -276,6 +546,10 @@
           if (job.status === "failed") {
             resultEl.hidden = false;
             resultEl.innerHTML = `<strong>Run failed.</strong><div>${job.error || "Unknown error"}</div>`;
+          }
+
+          if (job.status === "completed") {
+            addToHistory(job);
           }
 
           if (pollTimer) {
@@ -290,10 +564,11 @@
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         submitButton.disabled = true;
-        statusEl.textContent = "Status: queued";
+        updateStatus("queued", "Status: queued");
         logsEl.innerHTML = "";
         resultEl.hidden = true;
         resultEl.innerHTML = "";
+        renderProgress([], "queued");
 
         const response = await fetch("/api/jobs", {
           method: "POST",
@@ -308,7 +583,7 @@
         const payload = await response.json();
         if (!response.ok) {
           submitButton.disabled = false;
-          statusEl.textContent = "Status: failed";
+          updateStatus("failed", "Status: failed");
           resultEl.hidden = false;
           resultEl.innerHTML = `<strong>Could not start job.</strong><div>${payload.error || "Unknown error"}</div>`;
           return;
@@ -316,6 +591,17 @@
 
         pollJob(payload.id);
       });
+
+      examplesEl.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-example]");
+        if (!target) {
+          return;
+        }
+        queryInput.value = target.dataset.example || queryInput.value;
+      });
+
+      updateStatus("idle", "Waiting for a query.");
+      renderProgress([], "idle");
     </script>
   </body>
 </html>

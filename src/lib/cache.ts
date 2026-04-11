@@ -8,6 +8,7 @@ export interface CacheStore {
 }
 
 type RedisClient = ReturnType<typeof createClient>;
+type CacheStoreKind = "redis" | "memory";
 
 class MemoryCacheStore implements CacheStore {
   private readonly entries = new Map<string, { value: unknown; expiresAt: number }>();
@@ -60,6 +61,7 @@ class RedisBackedCacheStore implements CacheStore {
 }
 
 let cacheStorePromise: Promise<CacheStore> | null = null;
+let cacheStoreKind: CacheStoreKind | null = null;
 
 export function getCacheStore(): Promise<CacheStore> {
   if (!cacheStorePromise) {
@@ -69,8 +71,13 @@ export function getCacheStore(): Promise<CacheStore> {
   return cacheStorePromise;
 }
 
+export function getCacheStoreKind(): CacheStoreKind | null {
+  return cacheStoreKind;
+}
+
 async function createCacheStore(): Promise<CacheStore> {
   if (!config.redisUrl) {
+    cacheStoreKind = "memory";
     return new MemoryCacheStore();
   }
 
@@ -84,9 +91,11 @@ async function createCacheStore(): Promise<CacheStore> {
     });
 
     await client.connect();
+    cacheStoreKind = "redis";
     return new RedisBackedCacheStore(client);
   } catch (error) {
     console.warn("Falling back to memory cache because Redis could not connect.", error);
+    cacheStoreKind = "memory";
     return new MemoryCacheStore();
   }
 }
