@@ -13,6 +13,15 @@ openai.api_key  = os.getenv('OPENAI_API_KEY')
 
 client = openai.OpenAI()
 
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "de-CH,de;q=0.9,en;q=0.8",
+}
+
 class LinkParser(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -75,7 +84,7 @@ def crawl_site(start_url, max_pages=10):
             continue
 
         try:
-            response = requests.get(url, timeout=15)
+            response = requests.get(url, timeout=15, headers=DEFAULT_HEADERS)
             response.raise_for_status()
         except requests.RequestException:
             continue
@@ -93,6 +102,35 @@ def crawl_site(start_url, max_pages=10):
 def find_email_regex(html):
     match = re.search(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", html)
     return match.group(0) if match else None
+
+
+def find_email_with_playwright(url, timeout_ms=15000):
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        return None
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+            # Prefer explicit mailto links, then scan visible text.
+            mailtos = page.eval_on_selector_all(
+                "a[href^='mailto:']",
+                "els => els.map(e => e.getAttribute('href'))"
+            )
+            for href in mailtos or []:
+                email = href.replace("mailto:", "").split("?")[0].strip()
+                if email:
+                    browser.close()
+                    return email
+
+            text = page.inner_text("body")
+            browser.close()
+            return find_email_regex(text)
+    except Exception:
+        return None
 
 
 def get_completion(prompt, model="gpt-4o", temperature=0):
@@ -113,7 +151,7 @@ def get_completion_from_messages(messages, model="gpt-4o", temperature=0):
     # print(str(response.choices[0].message))
     return response.choices[0].message.content
 
-url = "https://max-restaurant.ch/"
+url = "http://www.heritage-restaurants.com/basel"
 pages = crawl_site(url, max_pages=10)
 
 email = None
@@ -122,6 +160,11 @@ for page_url, page_html in pages:
     if email:
         print(f'Found email on {page_url} via regex: {email}')
         break
+
+if email is None:
+    email = find_email_with_playwright(url)
+    if email:
+        print(f'Found email on {url} via Playwright: {email}')
 
 if email is None:
     for page_url, page_html in pages:
