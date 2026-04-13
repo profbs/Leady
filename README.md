@@ -27,61 +27,6 @@ Leady is a hackathon prototype that turns a natural-language request like `Give 
 5. Start the app with `npm run dev`
 6. Open `http://localhost:3000`
 
-## Redis For Hackers
-
-If you want your hackathon project to feel like a real product, use Redis for memory and context.
-
-### Connect Leady to Redis
-
-1. Create a Redis Cloud database at https://cloud.redis.io/ (Free Tier)
-2. Copy the connection string and set `REDIS_URL` in `.env`
-3. Restart the app and watch logs for `Cache store: Redis (REDIS_URL set).`
-
-Example connection string:
-
-```env
-REDIS_URL=rediss://default:<password>@<host>:<port>
-```
-
-If you want to use Context Retriever, please DM Simba your Redis Cloud account ID to get access.
-If you have exhausted the free tier, check in with Marie.
-
-### Why Use Redis
-
-Use Redis Agent Memory when you want to build agents that:
-- remember users across sessions
-- store preferences, facts, and prior decisions
-- recall relevant context at the right time
-- resume multi-step workflows without starting over
-
-Use the Redis Context Retriever when you want to build agents that:
-- understand your app's data without messy integrations
-- query real data (users, orders, events) instead of guessing
-- get tools generated automatically so you can move fast
-- stay reliable with built-in structure and guardrails
-
-### GitHub Repos
-
-- https://github.com/redis/redis-vl-python
-- https://github.com/redis/context-engine-demos
-- https://github.com/redis/agent-memory-server
-
-### Good Redis Projects
-
-- a support agent that remembers past conversations and actually picks up where the user left off
-- a research agent that keeps track of what it already checked so it doesn't loop or redo work
-- a co-pilot that can look up real users, orders, or activity and take action in your app
-- a shared context layer so multiple agents don't contradict each other or lose track of state
-
-### What To Show In Your Demo
-
-- show memory being written
-- show memory being recalled later
-- show context coming from tool calls to context retriever
-- explain why the workflow would be worse without Redis
-
-Good framing: Redis gave our agent durable memory, real-time context, and the ability to act on real data.
-
 ## Environment variables
 
 - `PORT`: web server port
@@ -97,12 +42,6 @@ Good framing: Redis gave our agent durable memory, real-time context, and the ab
 - `CONTACT_PAGE_LIMIT`: max discovered contact-like pages to fetch per site
 - `FETCH_TIMEOUT_MS`: timeout for website fetches
 - `USER_AGENT`: user agent for HTTP fetches
-
-## Demo flow
-
-1. Enter the canonical query
-2. Watch the live job log as Leady parses, calls Places, scrapes sites, extracts emails, and exports
-3. Open the generated sheet tab from the result card
 
 ## Notes
 
