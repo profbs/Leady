@@ -23,6 +23,9 @@ const envSchema = z.object({
 
 const env = envSchema.parse(process.env);
 
+const serviceAccountEmail = env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+const serviceAccountPrivateKey = env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+
 export const config = {
   port: env.PORT,
   googleMapsApiKey: env.GOOGLE_MAPS_API_KEY,
@@ -30,8 +33,8 @@ export const config = {
   openAiModel: env.OPENAI_MODEL,
   spreadsheetId: env.GOOGLE_SHEETS_SPREADSHEET_ID,
   sheetPrefix: env.GOOGLE_SHEETS_SHEET_PREFIX,
-  serviceAccountEmail: env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  serviceAccountPrivateKey: env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+  serviceAccountEmail,
+  serviceAccountPrivateKey: serviceAccountPrivateKey?.replace(/\\n/g, "\n"),
   redisUrl: env.REDIS_URL,
   agentMemoryTtlSeconds: env.AGENT_MEMORY_TTL_SECONDS,
   agentMemoryMaxEntries: env.AGENT_MEMORY_MAX_ENTRIES,

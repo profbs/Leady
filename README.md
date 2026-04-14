@@ -48,3 +48,21 @@ Leady is a hackathon prototype that turns a natural-language request like `Give 
 - Rows without an email are preserved and exported as `not found`
 - JS-heavy sites and anti-bot pages will still fail sometimes, which is expected for the prototype
 - The parser is intentionally scoped to one location and one category per query
+
+## Agent system
+
+The codebase includes a multi-agent layer (`src/lib/agents.ts`) that is separate from the main prospecting pipeline. It is not wired into the UI today but was built to support future conversational features.
+
+The architecture is a **master router + specialist agents** pattern:
+
+- A master agent reads the user's request and routes it to the right specialist
+- Specialists handle extraction, planning, filtering, and trip planning
+- A session memory layer (in-memory or Redis) persists context across turns
+
+It is exposed via `POST /api/agents/run` and `GET /api/agents/memory/:sessionId`.
+
+Possible future uses:
+- Pre-run query refinement — ask clarifying questions before hitting Places
+- Post-run filtering — let users narrow results with natural language after the pipeline completes
+- Multi-step sessions — build up a search across multiple turns using shared memory
+- Lead scoring — rank exported leads based on user-defined criteria
